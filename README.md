@@ -91,6 +91,42 @@ curl -X POST "http://localhost:8000/analysis/story-impact" \
   }'
 ```
 
+### 5) Issue/story -> graph query (two-stage)
+
+This endpoint converts a defect/user story into a query against the Neo4j graph and returns ranked nodes.
+
+1) **Fulltext stage (preferred):**
+   - (Optional) LLM generates a fulltext query string from the issue text
+   - Runs `db.index.fulltext.queryNodes` if the configured index exists
+   - Computes a confidence score from score separation and gates on `fulltext_confidence_threshold`
+
+2) **Fallback stage:**
+   - If fulltext confidence is low (or index is missing), runs bounded Cypher + local scoring
+   - (Optional) LLM extracts identifiers/keywords to improve the fallback scoring
+
+Configure LLM (optional): add to `.env`
+
+```bash
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4o-mini
+```
+
+Example call:
+
+```bash
+curl -X POST "http://localhost:8000/analysis/issue-query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "supergraph_id":"sb2_vs_sb3",
+    "title":"Organization name missing in user response",
+    "description":"Customer ABC (repo2) is not receiving organization name for a user. Customer CDE (repo1) receives it correctly.",
+    "acceptance_criteria":["Repo2 should return the correct organization name for a user"],
+    "top_k": 15,
+    "fulltext_index":"codeSearch",
+    "fulltext_confidence_threshold": 0.65
+  }'
+```
+
 ---
 
 ## Graph Model (Neo4j)

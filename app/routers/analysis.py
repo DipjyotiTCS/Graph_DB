@@ -1,8 +1,9 @@
 from fastapi import APIRouter
-from app.models import StoryImpactRequest
+from app.models import StoryImpactRequest, IssueQueryRequest
 from app.services.neo4j_service import Neo4jService
 from app.services.superimpose_service import SuperimposeService
 from app.services.story_impact_service import StoryImpactService
+from app.services.issue_query_service import IssueQueryService
 
 router = APIRouter(prefix="/analysis", tags=["analysis"])
 
@@ -23,3 +24,23 @@ def story_impact(req: StoryImpactRequest):
         return svc.suggest_change_locations(req)
     finally:
         neo.close()
+
+
+@router.post("/issue-query")
+def issue_query(req: IssueQueryRequest):
+    """Convert defect/user story text into a graph query and return ranked nodes.
+
+    Flow:
+    1) Use LLM (if configured) to generate a Neo4j fulltext query.
+       - Run fulltext search and compute confidence from score separation.
+       - If confidence >= threshold, return results.
+    2) Otherwise fall back to non-fulltext Cypher heuristics (optionally LLM-assisted).
+    """
+    neo = Neo4jService()
+    try:
+        svc = IssueQueryService(neo)
+        return svc.query(req)
+    finally:
+        neo.close()
+
+
